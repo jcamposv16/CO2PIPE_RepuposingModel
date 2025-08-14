@@ -1916,52 +1916,62 @@ with st.container():
                 '#8dd3c7', '#bebada', '#fb8072', '#80b1d3',
                 '#fdb462', '#b3de69', '#fccde5', '#bc80bd'
             ]
-            # === Stacked Bar Chart ===
             import matplotlib.pyplot as plt
-            fig_bar, ax_bar = plt.subplots(figsize=(5, 7))
-            bottoms = [0]
-            for i in range(1, len(cost_values)):
-                bottoms.append(bottoms[-1] + cost_values[i-1])
-            cost_values_million = [v / 1e6 for v in cost_values]
-            bottoms_million = [b / 1e6 for b in bottoms]
-            for i, (val, color) in enumerate(zip(cost_values_million, colors)):
-                ax_bar.bar("Total", val, bottom=bottoms_million[i], color=color, label=cost_labels[i], width=0.6)
-            ax_bar.set_ylabel("Cost (MMUSD)")
-            ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown")
-            ax_bar.set_xticks([])
-            ax_bar.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Categories", fontsize=10)
-            plt.tight_layout()
-            st.pyplot(fig_bar)
-            # === Pie Chart with % and arrow annotation ===
-            fig_pie, ax_pie = plt.subplots(figsize=(6, 6))
-            wedges, texts = ax_pie.pie(
-                cost_values,
-                labels=None,
-                autopct=None,
-                startangle=140,
-                colors=colors,
-                wedgeprops=dict(width=0.4)
-            )
-            total = sum(cost_values)
-            for i, wedge in enumerate(wedges):
-                angle = (wedge.theta2 + wedge.theta1) / 2
-                percent = 100. * cost_values[i] / total
-                x = 1.1 * np.cos(np.deg2rad(angle))
-                y = 1.1 * np.sin(np.deg2rad(angle))
-                ax_pie.annotate(
-                    f"{percent:.1f}%",
-                    xy=(x, y),
-                    xytext=(1.3 * x, 1.3 * y),
-                    ha='center', va='center',
-                    arrowprops=dict(arrowstyle="-", color=colors[i]),
-                    fontsize=10,
-                    color=colors[i]
+            with st.expander("📊 See Detailed Cost Charts", expanded=True):
+                # === Stacked Bar Chart ===
+                fig_bar, ax_bar = plt.subplots(figsize=(5, 7))
+                bottoms = [0]
+                for i in range(1, len(cost_values)):
+                    bottoms.append(bottoms[-1] + cost_values[i-1])
+                cost_values_million = [v / 1e6 for v in cost_values]
+                bottoms_million = [b / 1e6 for b in bottoms]
+                for i, (val, color) in enumerate(zip(cost_values_million, colors)):
+                    ax_bar.bar("Total", val, bottom=bottoms_million[i], color=color, label=cost_labels[i], width=0.6)
+                ax_bar.set_ylabel("Cost (MMUSD)")
+                ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown")
+                ax_bar.set_xticks([])
+                ax_bar.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Categories", fontsize=10)
+                plt.tight_layout()
+                st.pyplot(fig_bar)
+            
+                # === Pie Chart with % and arrow annotation ===
+                fig_pie, ax_pie = plt.subplots(figsize=(6, 6))
+                wedges, texts = ax_pie.pie(
+                    cost_values,
+                    labels=None,
+                    autopct=None,
+                    startangle=140,
+                    colors=colors,
+                    wedgeprops=dict(width=0.4)
                 )
-            ax_pie.set_title("Cost Share by Category")
-            ax_pie.axis('equal')
-            plt.legend(wedges, cost_labels, title="Categories", bbox_to_anchor=(1.1, 0.5), loc="center left", borderaxespad=0, fontsize=10)
-            plt.tight_layout()
-            st.pyplot(fig_pie)
+                total = sum(cost_values)
+                for i, wedge in enumerate(wedges):
+                    angle = (wedge.theta2 + wedge.theta1) / 2
+                    percent = 100. * cost_values[i] / total
+                    x = 1.1 * np.cos(np.deg2rad(angle))
+                    y = 1.1 * np.sin(np.deg2rad(angle))
+                    ax_pie.annotate(
+                        f"{percent:.1f}%",
+                        xy=(x, y),
+                        xytext=(1.3 * x, 1.3 * y),
+                        ha='center', va='center',
+                        arrowprops=dict(arrowstyle="-", color=colors[i]),
+                        fontsize=10,
+                        color=colors[i]
+                    )
+                ax_pie.set_title("Cost Share by Category")
+                ax_pie.axis('equal')
+                plt.legend(
+                    wedges,
+                    cost_labels,
+                    title="Categories",
+                    bbox_to_anchor=(1.1, 0.5),
+                    loc="center left",
+                    borderaxespad=0,
+                    fontsize=10
+                )
+                plt.tight_layout()
+                st.pyplot(fig_pie)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
