@@ -1560,19 +1560,17 @@ def escalation_factor(escalation_rate_percent, starting_year):
 def _fig_to_png(fig, width_px=540):
     """Render a Matplotlib fig to PNG bytes at a fixed width to keep layout stable."""
     buf = BytesIO()
-    # lock the physical size; DPI*inches = pixels
-    target_dpi = 110
+    target_dpi = 110                                # lock pixel density
     fig.set_dpi(target_dpi)
     w_in = width_px / target_dpi
-    # keep aspect consistent per chart type
+    # Use a consistent aspect per chart type
     if fig.get_figheight() < 1.0:
         fig.set_size_inches(w_in, w_in * 0.75, forward=True)
     else:
-        # respect current aspect but clamp width
         fig.set_size_inches(w_in, fig.get_figheight(), forward=True)
     fig.savefig(buf, format="png", bbox_inches="tight")
     buf.seek(0)
-    return buf    
+    return buf
 
 # ... [All your function definitions go here, including cost model functions CpParker, CpRui, CpMcCoy, CpBrown, costbooster, etc.] ...
 
@@ -1937,12 +1935,11 @@ with st.container():
 
             # -----------------------------
             # STABLE CHARTS (no shaking)
-            
             with st.expander("See Detailed Cost Charts", expanded=True):
-                # two fixed columns so the page height/width doesn't reflow on rerun
+                # two fixed columns so the page doesn't jump
                 col_bar, col_pie = st.columns(2, gap="large")
             
-                # ---------- Stacked Bar (legend inside the figure) ----------
+                # ---------- Stacked Bar (legend INSIDE) ----------
                 fig_bar, ax_bar = plt.subplots(figsize=(6, 7), dpi=110)
             
                 # cumulative bottoms
@@ -1950,19 +1947,20 @@ with st.container():
                 for i in range(1, len(cost_values)):
                     bottoms.append(bottoms[-1] + cost_values[i - 1])
             
-                # convert to MMUSD so y-axis ticks stay small and stable
+                # convert to MMUSD for neat ticks
                 vals_mm = [v / 1e6 for v in cost_values]
                 bottoms_mm = [b / 1e6 for b in bottoms]
             
-                # single stacked bar
+                # stacked single bar
                 for i, (val, color) in enumerate(zip(vals_mm, colors)):
-                    ax_bar.bar("Total", val, bottom=bottoms_mm[i], color=color, label=cost_labels[i], width=0.65)
+                    ax_bar.bar("Total", val, bottom=bottoms_mm[i], color=color,
+                               label=cost_labels[i], width=0.65)
             
                 ax_bar.set_ylabel("Cost (MMUSD)")
                 ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown")
                 ax_bar.set_xticks([])
             
-                # put legend *inside* the axes at the top center so figure size stays fixed
+                # Legend INSIDE: top center, two columns, small font, no frame
                 ax_bar.legend(
                     loc="upper center",
                     bbox_to_anchor=(0.5, 0.98),
@@ -1973,17 +1971,16 @@ with st.container():
                     title_fontsize=10,
                 )
             
-                # render as fixed-size PNG image (prevents layout jitter)
+                # render to fixed-size PNG (prevents jitter) — NOTE: use_container_width replaces deprecated use_column_width
                 with col_bar:
                     bar_png = _fig_to_png(fig_bar, width_px=520)
-                    st.image(bar_png, caption="Stacked Cost Breakdown", use_column_width=False)
+                    st.image(bar_png, caption="Stacked Cost Breakdown", use_container_width=False)
+                plt.close(fig_bar)
             
-                plt.close(fig_bar)  # free memory
-            
-                # ---------- Donut Pie (legend inside the figure area) ----------
+                # ---------- Donut Pie (legend INSIDE, bottom center) ----------
                 fig_pie, ax_pie = plt.subplots(figsize=(6, 6), dpi=110)
             
-                wedges, _texts = ax_pie.pie(
+                wedges, _ = ax_pie.pie(
                     cost_values,
                     labels=None,
                     autopct=None,
@@ -1996,7 +1993,7 @@ with st.container():
                 for i, w in enumerate(wedges):
                     angle = (w.theta2 + w.theta1) / 2.0
                     pct = 100.0 * cost_values[i] / total
-                    # position labels just outside the ring; short arrows so the figure doesn't grow
+                    # place label just outside the ring; short arrows keep layout compact
                     x = 0.95 * np.cos(np.deg2rad(angle))
                     y = 0.95 * np.sin(np.deg2rad(angle))
                     ax_pie.annotate(
@@ -2014,8 +2011,8 @@ with st.container():
                 ax_pie.set_title("Cost Share by Category")
                 ax_pie.axis("equal")
             
-                # compact legend *inside* the figure at bottom center (prevents width growth)
-                leg = ax_pie.legend(
+                # Compact legend INSIDE the figure at bottom center; two columns
+                ax_pie.legend(
                     wedges,
                     cost_labels,
                     loc="lower center",
@@ -2029,10 +2026,10 @@ with st.container():
             
                 with col_pie:
                     pie_png = _fig_to_png(fig_pie, width_px=520)
-                    st.image(pie_png, caption="Cost Share by Category", use_column_width=False)
-            
+                    st.image(pie_png, caption="Cost Share by Category", use_container_width=False)
                 plt.close(fig_pie)
-            
+                        
+           
         st.markdown('</div>', unsafe_allow_html=True)
 
 
