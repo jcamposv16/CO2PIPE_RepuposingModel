@@ -1728,12 +1728,12 @@ with st.container():
         st.markdown("*Estimation of Pipeline Corrosion Rate and Pipeline Repurposing Lifetime*")
         st.markdown("_Based on NORSOK M-506 Model_")
         # User inputs
-        QL = st.number_input("Liquid rate QL (m³/d):", value=1000.0)
-        QG = st.number_input("Gas rate QG (Mm³/d):", value=0.2)
-        WC = st.number_input("Water cut WC (fraction 0-1):", value=0.5)
-        Temp = st.number_input("Temperature Temp (°C):", value=40.0)
-        Pressure = st.number_input("Pressure (bar):", value=80.0)
-        mole_percent_CO2 = st.number_input("Mole percent CO2 (%):", value=99.0)
+        QL = st.number_input("Liquid rate QL (m³/d):", value=2185.0)
+        QG = st.number_input("Gas rate QG (Mm³/d):", value=8.9)
+        WC = st.number_input("Water cut WC (fraction 0-1):", value=0.00)
+        Temp = st.number_input("Temperature Temp (°C):", value=13.0)
+        Pressure = st.number_input("Pressure (bar):", value=50.0)
+        mole_percent_CO2 = st.number_input("Mole percent CO2 (%):", value=1.0)
         corrosion_rate_co2 = st.number_input("Estimated corrosion rate for CO2 transport (mm/year):", value=0.1)
 
 
