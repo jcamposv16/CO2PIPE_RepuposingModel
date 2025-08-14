@@ -9,7 +9,7 @@ import math
 import datetime
 import matplotlib.pyplot as plt
 from matplotlib.ticker import FuncFormatter
-
+from io import BytesIO
 
 
 
@@ -1557,6 +1557,23 @@ def escalation_factor(escalation_rate_percent, starting_year):
     escalation_factor = (1 + escalation_rate) ** years
     return escalation_factor
 
+def _fig_to_png(fig, width_px=540):
+    """Render a Matplotlib fig to PNG bytes at a fixed width to keep layout stable."""
+    buf = BytesIO()
+    # lock the physical size; DPI*inches = pixels
+    target_dpi = 110
+    fig.set_dpi(target_dpi)
+    w_in = width_px / target_dpi
+    # keep aspect consistent per chart type
+    if fig.get_figheight() < 1.0:
+        fig.set_size_inches(w_in, w_in * 0.75, forward=True)
+    else:
+        # respect current aspect but clamp width
+        fig.set_size_inches(w_in, fig.get_figheight(), forward=True)
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    buf.seek(0)
+    return buf    
+
 # ... [All your function definitions go here, including cost model functions CpParker, CpRui, CpMcCoy, CpBrown, costbooster, etc.] ...
 
 # Load pipeline data (now includes ID_IN and START_DATE)
@@ -1918,77 +1935,104 @@ with st.container():
             ]
             import matplotlib.pyplot as plt
 
-            # === Charts (stable layout, no shaking) ===
+            # -----------------------------
+            # STABLE CHARTS (no shaking)
+            
             with st.expander("See Detailed Cost Charts", expanded=True):
+                # two fixed columns so the page height/width doesn't reflow on rerun
                 col_bar, col_pie = st.columns(2, gap="large")
             
                 # ---------- Stacked Bar (legend inside the figure) ----------
+                fig_bar, ax_bar = plt.subplots(figsize=(6, 7), dpi=110)
+            
+                # cumulative bottoms
+                bottoms = [0.0]
+                for i in range(1, len(cost_values)):
+                    bottoms.append(bottoms[-1] + cost_values[i - 1])
+            
+                # convert to MMUSD so y-axis ticks stay small and stable
+                vals_mm = [v / 1e6 for v in cost_values]
+                bottoms_mm = [b / 1e6 for b in bottoms]
+            
+                # single stacked bar
+                for i, (val, color) in enumerate(zip(vals_mm, colors)):
+                    ax_bar.bar("Total", val, bottom=bottoms_mm[i], color=color, label=cost_labels[i], width=0.65)
+            
+                ax_bar.set_ylabel("Cost (MMUSD)")
+                ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown")
+                ax_bar.set_xticks([])
+            
+                # put legend *inside* the axes at the top center so figure size stays fixed
+                ax_bar.legend(
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, 0.98),
+                    ncol=2,
+                    fontsize=9,
+                    frameon=False,
+                    title="Categories",
+                    title_fontsize=10,
+                )
+            
+                # render as fixed-size PNG image (prevents layout jitter)
                 with col_bar:
-                    fig_bar, ax_bar = plt.subplots(figsize=(6, 6), dpi=110)
+                    bar_png = _fig_to_png(fig_bar, width_px=520)
+                    st.image(bar_png, caption="Stacked Cost Breakdown", use_column_width=False)
             
-                    # Cumulative bottoms
-                    bottoms = [0]
-                    for i in range(1, len(cost_values)):
-                        bottoms.append(bottoms[-1] + cost_values[i-1])
-            
-                    # Convert to MMUSD so y-axis ticks stay small and stable
-                    vals_mm = [v / 1e6 for v in cost_values]
-                    bottoms_mm = [b / 1e6 for b in bottoms]
-            
-                    for i, (val, color) in enumerate(zip(vals_mm, colors)):
-                        ax_bar.bar("Total", val, bottom=bottoms_mm[i],
-                                   color=color, label=cost_labels[i], width=0.55)
-            
-                    ax_bar.set_ylabel("Cost (MMUSD)")
-                    ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown")
-                    ax_bar.set_xticks([])
-            
-                    # Legend **inside** the axes at the top; frame to improve readability.
-                    ax_bar.legend(loc="upper center",
-                                  bbox_to_anchor=(0.5, 1.02),
-                                  frameon=True, ncol=1, fontsize=9)
-            
-                    # No tight_layout; let Streamlit keep container size stable.
-                    st.pyplot(fig_bar, use_container_width=True)
+                plt.close(fig_bar)  # free memory
             
                 # ---------- Donut Pie (legend inside the figure area) ----------
-                with col_pie:
-                    fig_pie, ax_pie = plt.subplots(figsize=(6, 6), dpi=110)
+                fig_pie, ax_pie = plt.subplots(figsize=(6, 6), dpi=110)
             
-                    wedges, _texts = ax_pie.pie(
-                        cost_values,
-                        labels=None,
-                        autopct=None,
-                        startangle=140,
-                        colors=colors,
-                        wedgeprops=dict(width=0.4)
+                wedges, _texts = ax_pie.pie(
+                    cost_values,
+                    labels=None,
+                    autopct=None,
+                    startangle=140,
+                    colors=colors,
+                    wedgeprops=dict(width=0.38),
+                )
+            
+                total = float(sum(cost_values))
+                for i, w in enumerate(wedges):
+                    angle = (w.theta2 + w.theta1) / 2.0
+                    pct = 100.0 * cost_values[i] / total
+                    # position labels just outside the ring; short arrows so the figure doesn't grow
+                    x = 0.95 * np.cos(np.deg2rad(angle))
+                    y = 0.95 * np.sin(np.deg2rad(angle))
+                    ax_pie.annotate(
+                        f"{pct:.1f}%",
+                        xy=(x, y),
+                        xytext=(1.18 * x, 1.18 * y),
+                        textcoords="data",
+                        ha="center",
+                        va="center",
+                        fontsize=10,
+                        arrowprops=dict(arrowstyle="-", lw=0.8),
+                        color=colors[i],
                     )
             
-                    total = float(sum(cost_values))
-                    for i, w in enumerate(wedges):
-                        angle = (w.theta2 + w.theta1) / 2.0
-                        pct = 100.0 * cost_values[i] / total
-                        x = 1.1 * np.cos(np.deg2rad(angle))
-                        y = 1.1 * np.sin(np.deg2rad(angle))
-                        ax_pie.annotate(
-                            f"{pct:.1f}%",
-                            xy=(x, y),
-                            xytext=(1.28 * x, 1.28 * y),
-                            ha="center", va="center",
-                            arrowprops=dict(arrowstyle="-", lw=0.8),
-                            fontsize=9
-                        )
+                ax_pie.set_title("Cost Share by Category")
+                ax_pie.axis("equal")
             
-                    ax_pie.set_title("Cost Share by Category")
-                    ax_pie.axis("equal")
+                # compact legend *inside* the figure at bottom center (prevents width growth)
+                leg = ax_pie.legend(
+                    wedges,
+                    cost_labels,
+                    loc="lower center",
+                    bbox_to_anchor=(0.5, -0.05),
+                    ncol=2,
+                    fontsize=9,
+                    frameon=False,
+                    title="Categories",
+                    title_fontsize=10,
+                )
             
-                    # Legend **inside** figure (bottom center) so width doesn’t grow.
-                    ax_pie.legend(wedges, cost_labels, title="Categories",
-                                  loc="lower center", bbox_to_anchor=(0.5, -0.05),
-                                  ncol=1, frameon=True, fontsize=9)
+                with col_pie:
+                    pie_png = _fig_to_png(fig_pie, width_px=520)
+                    st.image(pie_png, caption="Cost Share by Category", use_column_width=False)
             
-                    st.pyplot(fig_pie, use_container_width=True)
-
+                plt.close(fig_pie)
+            
         st.markdown('</div>', unsafe_allow_html=True)
 
 
