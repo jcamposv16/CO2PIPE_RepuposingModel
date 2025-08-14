@@ -1,6 +1,5 @@
-altair
-pandas
 streamlit
+pandas
 numpy
 folium
 geopandas
