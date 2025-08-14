@@ -1557,15 +1557,20 @@ def escalation_factor(escalation_rate_percent, starting_year):
     escalation_factor = (1 + escalation_rate) ** years
     return escalation_factor
 
-def _fig_to_png(fig, width_px=520, dpi=110):
+def _fig_to_png(fig, width_px=540):
     """Render a Matplotlib fig to PNG bytes at a fixed width to keep layout stable."""
     buf = BytesIO()
-    # lock the physical size; DPI * inches = pixels
-    fig.set_dpi(dpi)
-    w_in = width_px / dpi
+    # lock the physical size; DPI*inches = pixels
+    target_dpi = 110
+    fig.set_dpi(target_dpi)
+    w_in = width_px / target_dpi
     # keep aspect consistent per chart type
-    fig.set_size_inches(w_in, fig.get_figheight(), forward=True)
-    fig.savefig(buf, format="png", bbox_inches="tight", facecolor="white")
+    if fig.get_figheight() < 1.0:
+        fig.set_size_inches(w_in, w_in * 0.75, forward=True)
+    else:
+        # respect current aspect but clamp width
+        fig.set_size_inches(w_in, fig.get_figheight(), forward=True)
+    fig.savefig(buf, format="png", bbox_inches="tight")
     buf.seek(0)
     return buf
 
@@ -1934,10 +1939,10 @@ with st.container():
             # STABLE CHARTS (no shaking)
 
             with st.expander("See Detailed Cost Charts", expanded=True):
-                # Two fixed columns so page width/height doesn't reflow
+                # two fixed columns so the page height/width doesn't reflow on rerun
                 col_bar, col_pie = st.columns(2, gap="large")
             
-                # ---------- Stacked Bar (legend inside the figure) ----------
+                # ---------- Stacked Bar (legend ABOVE, outside axes) ----------
                 fig_bar, ax_bar = plt.subplots(figsize=(6, 7), dpi=110)
             
                 # cumulative bottoms
@@ -1950,34 +1955,41 @@ with st.container():
                 bottoms_mm = [b / 1e6 for b in bottoms]
             
                 # single stacked bar
+                bars = []
                 for i, (val, color) in enumerate(zip(vals_mm, colors)):
-                    ax_bar.bar("Total", val, bottom=bottoms_mm[i],
-                               color=color, label=cost_labels[i], width=0.65)
+                    b = ax_bar.bar("Total", val, bottom=bottoms_mm[i], color=color, label=cost_labels[i], width=0.65)
+                    bars.append(b)
             
                 ax_bar.set_ylabel("Cost (MMUSD)")
-                ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown")
                 ax_bar.set_xticks([])
+                ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown", pad=36)
             
-                # Legend: inside, top-center so the figure size stays fixed
-                ax_bar.legend(
+                # — Legend above (outside axes, inside figure canvas) —
+                handles, labels = ax_bar.get_legend_handles_labels()
+                fig_bar.legend(
+                    handles,
+                    labels,
                     loc="upper center",
-                    bbox_to_anchor=(0.5, 0.98),
-                    ncol=2,                # 2 columns looks balanced for 8 entries
+                    bbox_to_anchor=(0.5, 0.995),  # top-center, just inside the figure border
+                    ncol=3,                       # adjust columns to your preference
                     fontsize=9,
                     frameon=False,
                     title="Categories",
                     title_fontsize=10,
                 )
+                # leave space at the top for the legend
+                fig_bar.subplots_adjust(top=0.78)
             
                 with col_bar:
                     bar_png = _fig_to_png(fig_bar, width_px=520)
-                    st.image(bar_png, caption="Stacked Cost Breakdown", width=520)
+                    # ✅ use_container_width fixes the deprecation warning
+                    st.image(bar_png, caption="Stacked Cost Breakdown", use_container_width=True)
                 plt.close(fig_bar)
             
-                # ---------- Donut Pie (legend inside the figure area) ----------
+                # ---------- Donut Pie (legend ABOVE, outside axes) ----------
                 fig_pie, ax_pie = plt.subplots(figsize=(6, 6), dpi=110)
             
-                wedges, _ = ax_pie.pie(
+                wedges, _texts = ax_pie.pie(
                     cost_values,
                     labels=None,
                     autopct=None,
@@ -1987,19 +1999,16 @@ with st.container():
                 )
             
                 total = float(sum(cost_values))
-            
-                # concise percent labels; skip tiny slices to avoid clutter
                 for i, w in enumerate(wedges):
-                    pct = 100.0 * cost_values[i] / total
-                    if pct < 2.0:
-                        continue
                     angle = (w.theta2 + w.theta1) / 2.0
+                    pct = 100.0 * cost_values[i] / total
+                    # short, neat pointers just outside the ring
                     x = 0.95 * np.cos(np.deg2rad(angle))
                     y = 0.95 * np.sin(np.deg2rad(angle))
                     ax_pie.annotate(
                         f"{pct:.1f}%",
                         xy=(x, y),
-                        xytext=(1.16 * x, 1.16 * y),
+                        xytext=(1.12 * x, 1.12 * y),
                         textcoords="data",
                         ha="center",
                         va="center",
@@ -2008,26 +2017,30 @@ with st.container():
                         color=colors[i],
                     )
             
-                ax_pie.set_title("Cost Share by Category")
                 ax_pie.axis("equal")
+                ax_pie.set_title("Cost Share by Category", pad=36)
             
-                # Legend: compact, bottom-center INSIDE the figure (prevents width growth)
-                ax_pie.legend(
-                    wedges, cost_labels,
-                    loc="lower center",
-                    bbox_to_anchor=(0.5, -0.02),
-                    ncol=2,
+                # — Legend above (outside axes) —
+                fig_pie.legend(
+                    wedges,
+                    cost_labels,
+                    loc="upper center",
+                    bbox_to_anchor=(0.5, 0.995),
+                    ncol=3,
                     fontsize=9,
                     frameon=False,
                     title="Categories",
                     title_fontsize=10,
                 )
+                # space for legend
+                fig_pie.subplots_adjust(top=0.78)
             
                 with col_pie:
                     pie_png = _fig_to_png(fig_pie, width_px=520)
-                    st.image(pie_png, caption="Cost Share by Category", width=520)
+                    # ✅ use_container_width fixes the deprecation warning
+                    st.image(pie_png, caption="Cost Share by Category", use_container_width=True)
                 plt.close(fig_pie)
-           
+          
         st.markdown('</div>', unsafe_allow_html=True)
 
 
