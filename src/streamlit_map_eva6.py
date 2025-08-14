@@ -1655,7 +1655,7 @@ with st.container():
     # -- Transport Design --
     with c3:
         st.markdown('<div class="stCard tight-row">', unsafe_allow_html=True)
-        st.markdown("#### Transport Design")
+        st.markdown("#### CO2 Transport Capacity Design")
         st.markdown("*Transport/Flow Capacity Evaluation*")
         # Inputs for transport design
         pipe_capacity_factor = st.number_input("Pipeline capacity factor (e.g. 0.85)", value=0.85, min_value=0.1, max_value=1.0, step=0.01, key="CapFact")
@@ -1741,13 +1741,13 @@ with st.container():
     # -- Corrosion Calculate --
     with c4:
         st.markdown('<div class="stCard tight-row">', unsafe_allow_html=True)
-        st.markdown("#### Corrosion Calculate")
+        st.markdown("#### Corrosion Calculate & Lifetime")
         st.markdown("*Estimation of Pipeline Corrosion Rate and Pipeline Repurposing Lifetime*")
         st.markdown("_Based on NORSOK M-506 Model_")
         # User inputs
-        QL = st.number_input("Liquid rate QL (m³/d):", value=2185.0)
-        QG = st.number_input("Gas rate QG (Mm³/d):", value=8.9)
-        WC = st.number_input("Water cut WC (fraction 0-1):", value=0.00)
+        QL = st.number_input("Liquid rate QL (m³/d):", value=1000.0)
+        QG = st.number_input("Gas rate QG (Mm³/d):", value=5.0)
+        WC = st.number_input("Water cut WC (fraction 0-1):", value=0.10)
         Temp = st.number_input("Temperature Temp (°C):", value=13.0)
         Pressure = st.number_input("Pressure (bar):", value=50.0)
         mole_percent_CO2 = st.number_input("Mole percent CO2 (%):", value=1.0)
@@ -1969,7 +1969,7 @@ with st.container():
                 fig_bar.legend(
                     handles,
                     labels,
-                    loc="upper center",
+                    loc="lower center",
                     bbox_to_anchor=(0.5, 0.995),  # top-center, just inside the figure border
                     ncol=3,                       # adjust columns to your preference
                     fontsize=9,
@@ -2024,7 +2024,7 @@ with st.container():
                 fig_pie.legend(
                     wedges,
                     cost_labels,
-                    loc="upper center",
+                    loc="lower center",
                     bbox_to_anchor=(0.5, 0.995),
                     ncol=3,
                     fontsize=9,
