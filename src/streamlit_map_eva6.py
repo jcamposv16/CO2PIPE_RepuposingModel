@@ -1917,61 +1917,77 @@ with st.container():
                 '#fdb462', '#b3de69', '#fccde5', '#bc80bd'
             ]
             import matplotlib.pyplot as plt
-            with st.expander("📊 See Detailed Cost Charts", expanded=True):
-                # === Stacked Bar Chart ===
-                fig_bar, ax_bar = plt.subplots(figsize=(5, 7))
-                bottoms = [0]
-                for i in range(1, len(cost_values)):
-                    bottoms.append(bottoms[-1] + cost_values[i-1])
-                cost_values_million = [v / 1e6 for v in cost_values]
-                bottoms_million = [b / 1e6 for b in bottoms]
-                for i, (val, color) in enumerate(zip(cost_values_million, colors)):
-                    ax_bar.bar("Total", val, bottom=bottoms_million[i], color=color, label=cost_labels[i], width=0.6)
-                ax_bar.set_ylabel("Cost (MMUSD)")
-                ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown")
-                ax_bar.set_xticks([])
-                ax_bar.legend(loc='center left', bbox_to_anchor=(1, 0.5), title="Categories", fontsize=10)
-                plt.tight_layout()
-                st.pyplot(fig_bar)
+
+            # === Charts (stable layout, no shaking) ===
+            with st.expander("See Detailed Cost Charts", expanded=True):
+                col_bar, col_pie = st.columns(2, gap="large")
             
-                # === Pie Chart with % and arrow annotation ===
-                fig_pie, ax_pie = plt.subplots(figsize=(6, 6))
-                wedges, texts = ax_pie.pie(
-                    cost_values,
-                    labels=None,
-                    autopct=None,
-                    startangle=140,
-                    colors=colors,
-                    wedgeprops=dict(width=0.4)
-                )
-                total = sum(cost_values)
-                for i, wedge in enumerate(wedges):
-                    angle = (wedge.theta2 + wedge.theta1) / 2
-                    percent = 100. * cost_values[i] / total
-                    x = 1.1 * np.cos(np.deg2rad(angle))
-                    y = 1.1 * np.sin(np.deg2rad(angle))
-                    ax_pie.annotate(
-                        f"{percent:.1f}%",
-                        xy=(x, y),
-                        xytext=(1.3 * x, 1.3 * y),
-                        ha='center', va='center',
-                        arrowprops=dict(arrowstyle="-", color=colors[i]),
-                        fontsize=10,
-                        color=colors[i]
+                # ---------- Stacked Bar (legend inside the figure) ----------
+                with col_bar:
+                    fig_bar, ax_bar = plt.subplots(figsize=(6, 6), dpi=110)
+            
+                    # Cumulative bottoms
+                    bottoms = [0]
+                    for i in range(1, len(cost_values)):
+                        bottoms.append(bottoms[-1] + cost_values[i-1])
+            
+                    # Convert to MMUSD so y-axis ticks stay small and stable
+                    vals_mm = [v / 1e6 for v in cost_values]
+                    bottoms_mm = [b / 1e6 for b in bottoms]
+            
+                    for i, (val, color) in enumerate(zip(vals_mm, colors)):
+                        ax_bar.bar("Total", val, bottom=bottoms_mm[i],
+                                   color=color, label=cost_labels[i], width=0.55)
+            
+                    ax_bar.set_ylabel("Cost (MMUSD)")
+                    ax_bar.set_title("CO₂ Offshore Pipeline Stacked Cost Breakdown")
+                    ax_bar.set_xticks([])
+            
+                    # Legend **inside** the axes at the top; frame to improve readability.
+                    ax_bar.legend(loc="upper center",
+                                  bbox_to_anchor=(0.5, 1.02),
+                                  frameon=True, ncol=1, fontsize=9)
+            
+                    # No tight_layout; let Streamlit keep container size stable.
+                    st.pyplot(fig_bar, use_container_width=True)
+            
+                # ---------- Donut Pie (legend inside the figure area) ----------
+                with col_pie:
+                    fig_pie, ax_pie = plt.subplots(figsize=(6, 6), dpi=110)
+            
+                    wedges, _texts = ax_pie.pie(
+                        cost_values,
+                        labels=None,
+                        autopct=None,
+                        startangle=140,
+                        colors=colors,
+                        wedgeprops=dict(width=0.4)
                     )
-                ax_pie.set_title("Cost Share by Category")
-                ax_pie.axis('equal')
-                plt.legend(
-                    wedges,
-                    cost_labels,
-                    title="Categories",
-                    bbox_to_anchor=(1.1, 0.5),
-                    loc="center left",
-                    borderaxespad=0,
-                    fontsize=10
-                )
-                plt.tight_layout()
-                st.pyplot(fig_pie)
+            
+                    total = float(sum(cost_values))
+                    for i, w in enumerate(wedges):
+                        angle = (w.theta2 + w.theta1) / 2.0
+                        pct = 100.0 * cost_values[i] / total
+                        x = 1.1 * np.cos(np.deg2rad(angle))
+                        y = 1.1 * np.sin(np.deg2rad(angle))
+                        ax_pie.annotate(
+                            f"{pct:.1f}%",
+                            xy=(x, y),
+                            xytext=(1.28 * x, 1.28 * y),
+                            ha="center", va="center",
+                            arrowprops=dict(arrowstyle="-", lw=0.8),
+                            fontsize=9
+                        )
+            
+                    ax_pie.set_title("Cost Share by Category")
+                    ax_pie.axis("equal")
+            
+                    # Legend **inside** figure (bottom center) so width doesn’t grow.
+                    ax_pie.legend(wedges, cost_labels, title="Categories",
+                                  loc="lower center", bbox_to_anchor=(0.5, -0.05),
+                                  ncol=1, frameon=True, fontsize=9)
+            
+                    st.pyplot(fig_pie, use_container_width=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
