@@ -7,6 +7,10 @@ RUN apt-get update && apt-get install -y \
     curl \
     software-properties-common \
     git \
+    python3-dev \
+    gdal-bin \
+    libgdal-dev \
+    libspatialindex-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
