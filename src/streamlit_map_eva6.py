@@ -1564,7 +1564,7 @@ columns_to_keep = [
     "FEATURE_ID", "PIPE_NAME", "OD_IN", "ID_IN", "PIPE_GRADE",
     "LENGTH_M", "THICKNESS", "START_DATE", "geometry"
 ]
-gdf = gpd.read_file("data_pipelines_uk.geojson")[columns_to_keep]
+gdf = gpd.read_file("src/data_pipelines_uk.geojson")[columns_to_keep]
 geojson_data = json.loads(gdf.to_json())
 
 # Build the map (LARGE)
