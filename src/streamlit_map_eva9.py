@@ -1621,27 +1621,73 @@ def _highlight(feature):
     """Subtle highlight on hover."""
     return {"color": HOVER, "weight": 10, "opacity": 1.0}
 
-# ------------- Map build -------------
+# ------------- Map build (with Satellite + Streets basemaps) -------------
 # center the map on the selected feature (nice UX)
 _sel_row = gdf.loc[gdf["FEATURE_ID"].astype(str) == st.session_state.selected_feature_id]
 if len(_sel_row):
     minx, miny, maxx, maxy = _sel_row.iloc[0].geometry.bounds
     c_y = (miny + maxy) / 2
     c_x = (minx + maxx) / 2
-    m = folium.Map(location=[c_y, c_x], zoom_start=7, tiles="cartodbpositron")
 else:
     center = gdf.geometry.unary_union.centroid
-    m = folium.Map(location=[center.y, center.x], zoom_start=6, tiles="cartodbpositron")
+    c_y, c_x = center.y, center.x
 
-# Add GeoJSON (use __geo_interface__ to avoid an expensive to_json() copy)
+# Important: start with tiles=None so we can add multiple base layers
+m = folium.Map(location=[c_y, c_x], zoom_start=7, tiles=None)
+
+# --- Base layers ---
+# Light streets (what you had)
+folium.TileLayer(
+    "cartodbpositron",
+    name="Streets (CartoDB Positron)",
+    control=True
+).add_to(m)
+
+# Satellite imagery (Esri World Imagery – no key needed)
+folium.TileLayer(
+    tiles=(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/"
+        "World_Imagery/MapServer/tile/{z}/{y}/{x}"
+    ),
+    attr=("Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, "
+          "Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"),
+    name="Satellite (Esri WorldImagery)",
+    control=True,
+    overlay=False
+).add_to(m)
+
+# Optional: light labels overlay to sit on top of satellite
+folium.TileLayer(
+    tiles="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png",
+    attr="© CARTO",
+    name="Labels (light)",
+    control=True,
+    overlay=True
+).add_to(m)
+
+# --- Pipeline overlay (your styled GeoJSON) ---
 gj = folium.GeoJson(
-    data=gdf.__geo_interface__,
+    data=gdf.__geo_interface__,   # fast: avoids an extra to_json() copy
     name="Pipelines",
     style_function=_style_for,
     highlight_function=_highlight,
     tooltip=folium.GeoJsonTooltip(fields=["PIPE_NAME"]),
 )
 gj.add_to(m)
+
+# --- Map widgets: layer switcher, mini-map, fullscreen, mouse coords ---
+from folium.plugins import MiniMap, Fullscreen, MousePosition
+
+folium.LayerControl(position="topright", collapsed=False).add_to(m)
+
+MiniMap(zoom_level_offset=-2, toggle_display=True).add_to(m)
+Fullscreen(position="topleft").add_to(m)
+MousePosition(
+    position="bottomleft",
+    separator=" | ",
+    prefix="Lat/Lon",
+    num_digits=5
+).add_to(m)
 
 st.set_page_config(layout="wide")
 st.markdown("""
