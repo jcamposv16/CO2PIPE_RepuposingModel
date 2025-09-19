@@ -1667,9 +1667,9 @@ with st.container():
 
         st.markdown('</div>', unsafe_allow_html=True)
 
-# compute the clicked_row for downstream panels using the persistent selection
-_sel_mask = gdf["FEATURE_ID"].astype(str) == st.session_state.selected_feature_id
-clicked_row = gdf.loc[_sel_mask].iloc[0] if _sel_mask.any() else gdf.iloc[0]
+    # compute the clicked_row for downstream panels using the persistent selection
+    _sel_mask = gdf["FEATURE_ID"].astype(str) == st.session_state.selected_feature_id
+    clicked_row = gdf.loc[_sel_mask].iloc[0] if _sel_mask.any() else gdf.iloc[0]
 
 
     # --- Extract pipeline info for all calculations ---
