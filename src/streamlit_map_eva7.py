@@ -1584,29 +1584,62 @@ columns_to_keep = [
 gdf = gpd.read_file("src/data_pipelines_uk.geojson")[columns_to_keep]
 geojson_data = json.loads(gdf.to_json())
 
-# Build the map (LARGE)
-center = gdf.geometry.unary_union.centroid
-m = folium.Map(location=[center.y, center.x], zoom_start=6, tiles='cartodbpositron')
-def style_function(feature): return {"color": "blue", "weight": 8, "opacity": 1}
-def highlight_function(feature): return {"color": "red", "weight": 10, "opacity": 1}
+
+# ---- keep one selected feature in session ----
+if "selected_feature_id" not in st.session_state:
+    # default to the first feature on first load
+    st.session_state.selected_feature_id = str(gdf.iloc[0]["FEATURE_ID"])
+
+# tiny helpers
+BLUE = "#2C7BE5"       # default line color
+RED  = "#FF5A5F"       # selected line color
+HOVER = "#4ECDC4"      # hover color
+
+def _style_for(feature):
+    """Color the selected pipe in red; others blue."""
+    fid = str(feature["properties"].get("FEATURE_ID"))
+    is_sel = (fid == st.session_state.selected_feature_id)
+    return {
+        "color": RED if is_sel else BLUE,
+        "weight": 8 if is_sel else 6,
+        "opacity": 1.0 if is_sel else 0.85,
+    }
+
+def _highlight(feature):
+    """Subtle highlight on hover."""
+    return {"color": HOVER, "weight": 10, "opacity": 1.0}
+
+# center the map on the selected feature (nice UX)
+_sel_row = gdf.loc[gdf["FEATURE_ID"].astype(str) == st.session_state.selected_feature_id]
+if len(_sel_row):
+    bounds = _sel_row.iloc[0].geometry.bounds  # (minx, miny, maxx, maxy)
+    c_y = (bounds[1] + bounds[3]) / 2
+    c_x = (bounds[0] + bounds[2]) / 2
+    m = folium.Map(location=[c_y, c_x], zoom_start=7, tiles="cartodbpositron")
+else:
+    center = gdf.geometry.unary_union.centroid
+    m = folium.Map(location=[center.y, center.x], zoom_start=6, tiles="cartodbpositron")
+
+# add the layer with conditional styling (selected stays red after reruns)
 gj = folium.GeoJson(
-    geojson_data,
+    data=json.loads(gdf.to_json()),
     name="Pipelines",
-    style_function=style_function,
-    highlight_function=highlight_function,
+    style_function=_style_for,
+    highlight_function=_highlight,
     tooltip=folium.GeoJsonTooltip(fields=["PIPE_NAME"]),
 )
 gj.add_to(m)
 
+# have folium tell us which feature was interacted with
+# (st_folium exposes this back in map_data["last_active_feature"] / ["last_clicked"])
 st.set_page_config(layout="wide")
 st.markdown("""
 <style>
-    .stCard {background-color: #fff; padding: 1.3rem 1.5rem 0.8rem 1.5rem; border-radius: 18px;
-             border: 1.5px solid #f0f0f0; box-shadow: 0 2px 12px rgba(40,60,120,0.11);}
-    .tight-row {margin-bottom: -1.2rem;}
+    .stCard {background:#fff; padding:1.3rem 1.5rem 0.8rem 1.5rem; border-radius:18px;
+             border:1.5px solid #f0f0f0; box-shadow:0 2px 12px rgba(40,60,120,0.11);}
+    .tight-row {margin-bottom:-1.2rem;}
 </style>
 """, unsafe_allow_html=True)
-st.markdown("<h1 style='margin-bottom: 0.7rem;'>CO₂ Pipeline Repurposing Evaluation Tool</h1>", unsafe_allow_html=True)
 
 with st.container():
     # --- TOP ROW: Map & Pipeline Info ---
@@ -1614,19 +1647,30 @@ with st.container():
     with c1:
         st.markdown('<div class="stCard tight-row">', unsafe_allow_html=True)
         st.markdown("#### Pipeline Map")
+
+        # Render the map (we keep width/height fixed so the page doesn't ‘jump’)
         map_data = st_folium(m, width=900, height=520)
+
+        # Update the selected feature if the user clicked or hovered
+        if map_data:
+            # 1) exact feature hover/click (preferred — keeps FEATURE_ID)
+            feat = map_data.get("last_active_feature") or map_data.get("last_object_clicked")
+            if feat and "properties" in feat and "FEATURE_ID" in feat["properties"]:
+                st.session_state.selected_feature_id = str(feat["properties"]["FEATURE_ID"])
+            # 2) fallback: plain map click near a line – pick the closest geometry
+            elif "last_clicked" in map_data and map_data["last_clicked"]:
+                lng, lat = map_data["last_clicked"]["lng"], map_data["last_clicked"]["lat"]
+                # find nearest line to the click
+                click_pt = gpd.points_from_xy([lng], [lat])[0]
+                idx = gdf.distance(click_pt).idxmin()
+                st.session_state.selected_feature_id = str(gdf.loc[idx, "FEATURE_ID"])
+
         st.markdown('</div>', unsafe_allow_html=True)
-    clicked_row = gdf.iloc[0]
-    if map_data:
-        if "last_active_feature" in map_data and map_data["last_active_feature"]:
-            props = map_data["last_active_feature"]["properties"]
-            match = gdf["FEATURE_ID"] == props.get("FEATURE_ID")
-            if match.any():
-                clicked_row = gdf.loc[match].iloc[0]
-        elif "last_clicked" in map_data and map_data["last_clicked"]:
-            lng, lat = map_data["last_clicked"]["lng"], map_data["last_clicked"]["lat"]
-            min_dist = gdf.distance(gpd.points_from_xy([lng], [lat])[0]).idxmin()
-            clicked_row = gdf.loc[min_dist]
+
+# compute the clicked_row for downstream panels using the persistent selection
+_sel_mask = gdf["FEATURE_ID"].astype(str) == st.session_state.selected_feature_id
+clicked_row = gdf.loc[_sel_mask].iloc[0] if _sel_mask.any() else gdf.iloc[0]
+
 
     # --- Extract pipeline info for all calculations ---
     pipe_name = clicked_row.get('PIPE_NAME', 'N/A')
