@@ -1578,10 +1578,9 @@ def _fig_to_png(fig, width_px=540):
 
 # Load pipeline data (now includes ID_IN and START_DATE)
 
-# ... [All your function definitions go here, including cost model functions CpParker, CpRui, CpMcCoy, CpBrown, costbooster, etc.] ...
+# ... [All your function definitions go here, including CpParker, CpRui, CpMcCoy, CpBrown, costbooster, etc.] ...
 
 # Load pipeline data (now includes ID_IN and START_DATE)
-
 columns_to_keep = [
     "FEATURE_ID", "PIPE_NAME", "OD_IN", "ID_IN", "PIPE_GRADE",
     "LENGTH_M", "THICKNESS", "START_DATE", "geometry"
@@ -1594,11 +1593,11 @@ try:
 except Exception:
     pass
 
-import os
 import streamlit as st
 import geopandas as gpd
 import folium
 from streamlit_folium import st_folium
+from pathlib import Path
 
 @st.cache_data(show_spinner=False)
 def _load_gdf():
@@ -1611,23 +1610,18 @@ def _load_gdf():
 # ---------- Geological traps (HiSTORIEs) loader + styling ----------
 @st.cache_data(show_spinner=False)
 def _load_traps():
-    """Try several common paths; return GeoDataFrame or None."""
-    candidates = [
-        "src/Hystories_Layers.geojson",
-        "data/Hystories_Layers.geojson",
-        "Hystories_Layers.geojson",
-        "/mnt/data/Hystories_Layers.geojson",  # Hugging Face upload path
-    ]
-    for p in candidates:
-        if os.path.exists(p):
-            tgdf = gpd.read_file(p)
-            try:
-                from shapely import set_precision
-                tgdf["geometry"] = tgdf.geometry.apply(lambda geom: set_precision(geom, 1e-6))
-            except Exception:
-                pass
-            return tgdf
-    return None
+    """Load traps from the fixed path src/Hystories_Layers.geojson."""
+    trap_path = Path("src") / "Hystories_Layers.geojson"
+    if not trap_path.exists():
+        st.warning(f"Geological traps file not found: {trap_path}")
+        return None
+    tgdf = gpd.read_file(trap_path)
+    try:
+        from shapely import set_precision
+        tgdf["geometry"] = tgdf.geometry.apply(lambda geom: set_precision(geom, 1e-6))
+    except Exception:
+        pass
+    return tgdf
 
 TRAP_EDGE   = "#C43C00"   # dark orange outline
 TRAP_FILL   = "#FF7F0E"   # orange fill
@@ -1646,7 +1640,7 @@ def _trap_highlight(_feature):
     return {"weight": 3, "color": "#000000", "fillOpacity": 0.45}
 
 gdf = _load_gdf()
-traps_gdf = _load_traps()   # <- NEW
+traps_gdf = _load_traps()
 
 # ---- keep one selected feature in session ----
 if "selected_feature_id" not in st.session_state:
@@ -1684,23 +1678,15 @@ else:
 m = folium.Map(location=[c_y, c_x], zoom_start=7, tiles=None)
 
 # --- Base layers ---
+folium.TileLayer("cartodbpositron", name="Streets (CartoDB Positron)", control=True).add_to(m)
 folium.TileLayer(
-    "cartodbpositron",
-    name="Streets (CartoDB Positron)",
-    control=True
-).add_to(m)
-
-# Satellite imagery (Esri World Imagery – no key needed)
-folium.TileLayer(
-    tiles=("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
+    tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
     attr=("Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, "
           "Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"),
     name="Satellite (Esri WorldImagery)",
     control=True,
     overlay=False
 ).add_to(m)
-
-# Optional: light labels overlay to sit on top of satellite
 folium.TileLayer(
     tiles="https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}.png",
     attr="© CARTO",
@@ -1709,9 +1695,12 @@ folium.TileLayer(
     overlay=True
 ).add_to(m)
 
-# --- NEW: Geological traps layer (add BEFORE pipelines so lines stay on top) ---
+# --- Geological traps layer (ONLY show trap name; no popup) ---
 if traps_gdf is not None and len(traps_gdf):
-    trap_fields = [c for c in traps_gdf.columns if c.lower() != "geometry"][:6]  # compact tooltip
+    # robustly find the name column (case-insensitive)
+    name_candidates = ("trap_name", "trapname", "name", "trap")
+    trap_name_col = next((c for c in traps_gdf.columns if c.lower() in name_candidates), None)
+
     traps_group = folium.FeatureGroup(name="Geological traps (HiSTORIEs)", show=True)
     folium.GeoJson(
         data=traps_gdf.__geo_interface__,
@@ -1719,15 +1708,16 @@ if traps_gdf is not None and len(traps_gdf):
         style_function=_trap_style,
         highlight_function=_trap_highlight,
         tooltip=folium.GeoJsonTooltip(
-            fields=trap_fields,
-            aliases=[f"{c}:" for c in trap_fields],
-            sticky=False,
-            localize=True,
+            fields=[trap_name_col] if trap_name_col else [],
+            aliases=["Trap:"],
+            sticky=False,      # disappears when mouse leaves
+            localize=True
         ),
+        # no popup => clicks won't dump all properties
     ).add_to(traps_group)
     traps_group.add_to(m)
 
-# --- Pipeline overlay (your styled GeoJSON) ---
+# --- Pipeline overlay (keep AFTER traps so lines sit on top) ---
 gj = folium.GeoJson(
     data=gdf.__geo_interface__,   # fast: avoids an extra to_json() copy
     name="Pipelines",
@@ -1739,7 +1729,6 @@ gj.add_to(m)
 
 # --- Map widgets: layer switcher, mini-map, fullscreen, mouse coords ---
 from folium.plugins import MiniMap, Fullscreen, MousePosition
-
 folium.LayerControl(position="topright", collapsed=False).add_to(m)
 MiniMap(zoom_level_offset=-2, toggle_display=True).add_to(m)
 Fullscreen(position="topleft").add_to(m)
@@ -1761,8 +1750,13 @@ with st.container():
         st.markdown('<div class="stCard tight-row">', unsafe_allow_html=True)
         st.markdown("#### Pipeline Map")
 
-        # IMPORTANT: stable key + bigger map
-        map_data = st_folium(m, width=1200, height=650, key="main_map")
+        # Fit the map to the column width (no overflow)
+        map_data = st_folium(
+            m,
+            height=600,                # tweak height as you like
+            use_container_width=True,  # key fix: respect column width
+            key="main_map"
+        )
 
         # Update the selected feature if the user clicked or hovered
         if map_data:
