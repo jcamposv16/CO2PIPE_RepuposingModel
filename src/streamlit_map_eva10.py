@@ -1601,7 +1601,7 @@ from pathlib import Path
 
 @st.cache_data(show_spinner=False)
 def _load_gdf():
-    g = gpd.read_file("src/data_pipelines_uk.geojson")[columns_to_keep]
+    g = gpd.read_file("src/data_pipelines_uk1.geojson")[columns_to_keep]
     # keep geometry precision reasonable (smaller payload to the map)
     from shapely import set_precision
     g["geometry"] = g.geometry.apply(lambda geom: set_precision(geom, 1e-6))
