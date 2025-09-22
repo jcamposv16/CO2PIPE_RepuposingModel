@@ -1578,6 +1578,10 @@ def _fig_to_png(fig, width_px=540):
 
 # Load pipeline data (now includes ID_IN and START_DATE)
 
+# ... [All your function definitions go here, including cost model functions CpParker, CpRui, CpMcCoy, CpBrown, costbooster, etc.] ...
+
+# Load pipeline data (now includes ID_IN and START_DATE)
+
 columns_to_keep = [
     "FEATURE_ID", "PIPE_NAME", "OD_IN", "ID_IN", "PIPE_GRADE",
     "LENGTH_M", "THICKNESS", "START_DATE", "geometry"
@@ -1590,6 +1594,12 @@ try:
 except Exception:
     pass
 
+import os
+import streamlit as st
+import geopandas as gpd
+import folium
+from streamlit_folium import st_folium
+
 @st.cache_data(show_spinner=False)
 def _load_gdf():
     g = gpd.read_file("src/data_pipelines_uk.geojson")[columns_to_keep]
@@ -1598,7 +1608,45 @@ def _load_gdf():
     g["geometry"] = g.geometry.apply(lambda geom: set_precision(geom, 1e-6))
     return g
 
+# ---------- Geological traps (HiSTORIEs) loader + styling ----------
+@st.cache_data(show_spinner=False)
+def _load_traps():
+    """Try several common paths; return GeoDataFrame or None."""
+    candidates = [
+        "src/Hystories_Layers.geojson",
+        "data/Hystories_Layers.geojson",
+        "Hystories_Layers.geojson",
+        "/mnt/data/Hystories_Layers.geojson",  # Hugging Face upload path
+    ]
+    for p in candidates:
+        if os.path.exists(p):
+            tgdf = gpd.read_file(p)
+            try:
+                from shapely import set_precision
+                tgdf["geometry"] = tgdf.geometry.apply(lambda geom: set_precision(geom, 1e-6))
+            except Exception:
+                pass
+            return tgdf
+    return None
+
+TRAP_EDGE   = "#C43C00"   # dark orange outline
+TRAP_FILL   = "#FF7F0E"   # orange fill
+TRAP_ALPHA  = 0.28
+
+def _trap_style(_feature):
+    return {
+        "color": TRAP_EDGE,
+        "weight": 1.5,
+        "opacity": 0.9,
+        "fillColor": TRAP_FILL,
+        "fillOpacity": TRAP_ALPHA,
+    }
+
+def _trap_highlight(_feature):
+    return {"weight": 3, "color": "#000000", "fillOpacity": 0.45}
+
 gdf = _load_gdf()
+traps_gdf = _load_traps()   # <- NEW
 
 # ---- keep one selected feature in session ----
 if "selected_feature_id" not in st.session_state:
@@ -1636,7 +1684,6 @@ else:
 m = folium.Map(location=[c_y, c_x], zoom_start=7, tiles=None)
 
 # --- Base layers ---
-# Light streets (what you had)
 folium.TileLayer(
     "cartodbpositron",
     name="Streets (CartoDB Positron)",
@@ -1645,10 +1692,7 @@ folium.TileLayer(
 
 # Satellite imagery (Esri World Imagery – no key needed)
 folium.TileLayer(
-    tiles=(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/"
-        "World_Imagery/MapServer/tile/{z}/{y}/{x}"
-    ),
+    tiles=("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"),
     attr=("Tiles © Esri — Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, "
           "Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community"),
     name="Satellite (Esri WorldImagery)",
@@ -1665,6 +1709,24 @@ folium.TileLayer(
     overlay=True
 ).add_to(m)
 
+# --- NEW: Geological traps layer (add BEFORE pipelines so lines stay on top) ---
+if traps_gdf is not None and len(traps_gdf):
+    trap_fields = [c for c in traps_gdf.columns if c.lower() != "geometry"][:6]  # compact tooltip
+    traps_group = folium.FeatureGroup(name="Geological traps (HiSTORIEs)", show=True)
+    folium.GeoJson(
+        data=traps_gdf.__geo_interface__,
+        name="Geological traps (HiSTORIEs)",
+        style_function=_trap_style,
+        highlight_function=_trap_highlight,
+        tooltip=folium.GeoJsonTooltip(
+            fields=trap_fields,
+            aliases=[f"{c}:" for c in trap_fields],
+            sticky=False,
+            localize=True,
+        ),
+    ).add_to(traps_group)
+    traps_group.add_to(m)
+
 # --- Pipeline overlay (your styled GeoJSON) ---
 gj = folium.GeoJson(
     data=gdf.__geo_interface__,   # fast: avoids an extra to_json() copy
@@ -1679,15 +1741,9 @@ gj.add_to(m)
 from folium.plugins import MiniMap, Fullscreen, MousePosition
 
 folium.LayerControl(position="topright", collapsed=False).add_to(m)
-
 MiniMap(zoom_level_offset=-2, toggle_display=True).add_to(m)
 Fullscreen(position="topleft").add_to(m)
-MousePosition(
-    position="bottomleft",
-    separator=" | ",
-    prefix="Lat/Lon",
-    num_digits=5
-).add_to(m)
+MousePosition(position="bottomleft", separator=" | ", prefix="Lat/Lon", num_digits=5).add_to(m)
 
 st.set_page_config(layout="wide")
 st.markdown("""
@@ -1705,8 +1761,8 @@ with st.container():
         st.markdown('<div class="stCard tight-row">', unsafe_allow_html=True)
         st.markdown("#### Pipeline Map")
 
-        # IMPORTANT: give the map a stable key so Streamlit doesn't re-create it unnecessarily
-        map_data = st_folium(m, width=1000, height=550, key="main_map")
+        # IMPORTANT: stable key + bigger map
+        map_data = st_folium(m, width=1200, height=650, key="main_map")
 
         # Update the selected feature if the user clicked or hovered
         if map_data:
@@ -1716,7 +1772,7 @@ with st.container():
                 new_id = str(feat["properties"]["FEATURE_ID"])
                 if new_id != st.session_state.selected_feature_id:
                     st.session_state.selected_feature_id = new_id
-                    st.rerun()  # update immediately instead of waiting ~30s
+                    st.rerun()  # update immediately
             # 2) fallback: plain map click near a line – pick the closest geometry
             elif map_data.get("last_clicked"):
                 lng, lat = map_data["last_clicked"]["lng"], map_data["last_clicked"]["lat"]
@@ -1732,7 +1788,6 @@ with st.container():
     # compute the clicked_row for downstream panels using the persistent selection
     _sel_mask = gdf["FEATURE_ID"].astype(str) == st.session_state.selected_feature_id
     clicked_row = gdf.loc[_sel_mask].iloc[0] if _sel_mask.any() else gdf.iloc[0]
-
 
     # --- Extract pipeline info for all calculations ---
     pipe_name = clicked_row.get('PIPE_NAME', 'N/A')
