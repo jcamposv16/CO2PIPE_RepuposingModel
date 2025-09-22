@@ -1706,7 +1706,7 @@ with st.container():
         st.markdown("#### Pipeline Map")
 
         # IMPORTANT: give the map a stable key so Streamlit doesn't re-create it unnecessarily
-        map_data = st_folium(m, width=900, height=520, key="main_map")
+        map_data = st_folium(m, width=1000, height=550, key="main_map")
 
         # Update the selected feature if the user clicked or hovered
         if map_data:
