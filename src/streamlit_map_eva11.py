@@ -1792,7 +1792,9 @@ with st.container():
     thickness_mm = float(clicked_row.get('THICKNESS', 0))
     pipe_grade = clicked_row.get('PIPE_GRADE', 'N/A')
     start_year = int(clicked_row.get('START_DATE', 1990))
-
+    status = clicked_row.get('STATUS', 'N/A')
+    end_date = clicked_row.get('END_DATE', None)
+    
     with c2:
         st.markdown('<div class="stCard tight-row">', unsafe_allow_html=True)
         st.markdown("#### Pipeline Information")
@@ -1803,6 +1805,12 @@ with st.container():
         st.markdown(f"**Thickness (mm):** {thickness_mm:.2f}")
         st.markdown(f"**Pipe Grade:** {pipe_grade}")
         st.markdown(f"**Start of Operation:** {start_year}")
+        st.markdown(f"**Status:** {status}")
+    
+        # Only show End Date if status is NOT IN USE or ABANDONED
+        if status.upper() in ["NOT IN USE", "ABANDONED"] and end_date:
+            st.markdown(f"**End of Operation:** {end_date}")
+    
         st.markdown('</div>', unsafe_allow_html=True)
 
     # --- BOTTOM ROW: Transport, Corrosion, Cost Model ---
