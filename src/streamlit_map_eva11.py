@@ -1920,6 +1920,7 @@ with st.container():
         st.markdown("#### Corrosion Calculate & Lifetime")
         st.markdown("*Estimation of Pipeline Corrosion Rate and Pipeline Repurposing Lifetime*")
         st.markdown("_Based on NORSOK M-506 Model_")
+    
         # User inputs
         QL = st.number_input("Liquid rate QL (m³/d):", value=1000.0)
         QG = st.number_input("Gas rate QG (Mm³/d):", value=5.0)
@@ -1928,29 +1929,25 @@ with st.container():
         Pressure = st.number_input("Pressure (bar):", value=50.0)
         mole_percent_CO2 = st.number_input("Mole percent CO2 (%):", value=1.0)
         corrosion_rate_co2 = st.number_input("Estimated corrosion rate for CO2 transport (mm/year):", value=0.1)
-
-
+    
         # -- Pipeline parameters are auto-filled --
-        D = id_in  # internal diameter from pipeline info (inches)
-        D = D / 39.3701  # convert to meters if needed (if data is in inches)
+        D = id_in / 39.3701   # internal diameter in meters
         pipeline_thickness = thickness_mm
         pipeline_start_year = start_year
-
+        pipeline_status = status  # from the info panel
+        pipeline_end_date = end_date_str  # <- reuse cleaned value
+    
         # Tmin parameters from pipeline data
-        pressure_tmin_bar = None
-        temp_tmin = None
-        grade_tmin = None
         if 'p_avg' in locals():
-            pressure_tmin_bar = p_avg * 10  # MPa to bar (1 MPa = 10 bar)
+            pressure_tmin_bar = p_avg * 10  # MPa -> bar
         else:
             pressure_tmin_bar = 80.0
         temp_tmin = tmp_c
         grade_tmin = pipe_grade
-
-
+    
         # --- Results ---
         if st.button("Estimate Corrosion and Lifetime"):
-            # Constants (copy from your corrosion code)
+            # Constants
             sp_gr = 0.8
             rho_G = 200
             uo = 1.1
@@ -1964,8 +1961,8 @@ with st.container():
             Bicarb = 0
             IonicStrength = 50
             CalcOfpH = 1
-
-            # --- Calculations (paste your code logic here as before) ---
+    
+            # --- Flow and NORSOK inputs ---
             vsl = v_sl(QL, D)
             vsg = v_sg(QG, sp_gr, rho_G, D)
             vmix = v_m(vsl, vsg)
@@ -1982,34 +1979,46 @@ with st.container():
             fpH = fpH_Cal(Temp, pH)
             Kt_value = Kt(Temp)
             corrosion_rate = Corrosion_Norsok(Kt_value, fugacity_co2_value, S, fpH)  # mm/year
-
+    
             st.markdown(f"### Estimated Corrosion Rate: **{corrosion_rate:.3f} mm/year**")
-
+    
             # --- Age calculations ---
             current_year = datetime.datetime.now().year
-            years = current_year - pipeline_start_year
+            status_upper = (pipeline_status or "").strip().upper()
+    
+            if status_upper in {"NOT IN USE", "ABANDONED"} and pipeline_end_date:
+                try:
+                    end_year = int(pipeline_end_date)
+                except Exception:
+                    end_year = current_year
+                years = max(0, end_year - pipeline_start_year)
+                years_label = f"{pipeline_start_year} → {end_year}"
+            else:
+                years = max(0, current_year - pipeline_start_year)
+                years_label = f"{pipeline_start_year} → {current_year}"
+    
             thickness_corroded = corrosion_rate * years
-            st.markdown(f"**Years in operation:** {years} years")
+            st.markdown(f"**Years considered for corrosion:** {years} years ({years_label})")
             st.markdown(f"**Estimated total thickness lost to corrosion:** {thickness_corroded:.2f} mm")
-
+    
             # --- Tmin calculation ---
             pressure_tmin_pa = float(pressure_tmin_bar) * 100000  # bar to Pa
             Tmin = tmin(pressure_tmin_pa, D, temp_tmin, grade_tmin)
             st.markdown(f"**Minimum required wall thickness (Tmin):** {Tmin:.2f} mm")
-
+    
             # --- Thickness calculations ---
             current_thickness = pipeline_thickness - thickness_corroded
             thickness_available = current_thickness - Tmin
             st.markdown(f"**Current wall thickness after corrosion:** {current_thickness:.2f} mm")
             st.markdown(f"**Thickness available (Current thickness - Tmin):** {thickness_available:.2f} mm")
-
-            # --- Repurposing for CO2 transport ---
+    
+            # --- Repurposing for CO₂ transport ---
             if corrosion_rate_co2 > 0:
                 years_for_CO2 = thickness_available / corrosion_rate_co2
-                st.success(f"Number of years pipeline can be safely repurposed for CO2 transport: **{years_for_CO2:.2f} years**")
+                st.success(f"Number of years pipeline can be safely repurposed for CO₂ transport: **{years_for_CO2:.2f} years**")
             else:
-                st.warning("Corrosion rate for CO2 must be greater than zero to estimate years for CO2 transport.")
-
+                st.warning("Corrosion rate for CO₂ must be greater than zero to estimate years for CO₂ transport.")
+    
         st.markdown('</div>', unsafe_allow_html=True)
 
     # -- Cost Model Calculate --
