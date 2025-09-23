@@ -1580,12 +1580,12 @@ def _fig_to_png(fig, width_px=540):
 
 # ... [All your function definitions go here, including CpParker, CpRui, CpMcCoy, CpBrown, costbooster, etc.] ...
 
-# Load pipeline data (now includes ID_IN and START_DATE)
+# Load pipeline data (now includes ID_IN, START_DATE, STATUS, END_DATE)
 columns_to_keep = [
     "FEATURE_ID", "PIPE_NAME", "OD_IN", "ID_IN", "PIPE_GRADE",
-    "LENGTH_M", "THICKNESS", "START_DATE", "geometry"
+    "LENGTH_M", "THICKNESS", "START_DATE", "STATUS", "END_DATE",  # <- added
+    "geometry"
 ]
-
 # Optional micro-optimizations for Shapely
 try:
     import shapely.speedups as _sx
@@ -1786,14 +1786,22 @@ with st.container():
     # --- Extract pipeline info for all calculations ---
     pipe_name = clicked_row.get('PIPE_NAME', 'N/A')
     length_km = float(clicked_row.get('LENGTH_M', 0)) / 1000
-    length_mi = length_km * 0.621371  # convert km to miles for cost model
+    length_mi = length_km * 0.621371
     od_in = float(clicked_row.get('OD_IN', 0))
     id_in = float(clicked_row.get('ID_IN', 0))
     thickness_mm = float(clicked_row.get('THICKNESS', 0))
     pipe_grade = clicked_row.get('PIPE_GRADE', 'N/A')
-    start_year = int(clicked_row.get('START_DATE', 1990))
-    status = clicked_row.get('STATUS', 'N/A')
+    start_year = int(clicked_row.get('START_DATE', 1990)) 
+    
+    # Status + End Date
+    status = str(clicked_row.get('STATUS', 'N/A')).strip()
     end_date = clicked_row.get('END_DATE', None)
+    
+    # Format END_DATE cleanly
+    if pd.notna(end_date) and end_date not in ("", "<NA>", "NaT"):
+        end_date_str = str(int(end_date)) if str(end_date).isdigit() else str(end_date)
+    else:
+        end_date_str = None
     
     with c2:
         st.markdown('<div class="stCard tight-row">', unsafe_allow_html=True)
@@ -1807,9 +1815,9 @@ with st.container():
         st.markdown(f"**Start of Operation:** {start_year}")
         st.markdown(f"**Status:** {status}")
     
-        # Only show End Date if status is NOT IN USE or ABANDONED
-        if status.upper() in ["NOT IN USE", "ABANDONED"] and end_date:
-            st.markdown(f"**End of Operation:** {end_date}")
+        # Show End Date only if status indicates it’s out of service
+        if status.upper() in {"NOT IN USE", "ABANDONED"} and end_date_str:
+            st.markdown(f"**End of Operation:** {end_date_str}")
     
         st.markdown('</div>', unsafe_allow_html=True)
 
