@@ -1791,15 +1791,20 @@ with st.container():
     id_in = float(clicked_row.get('ID_IN', 0))
     thickness_mm = float(clicked_row.get('THICKNESS', 0))
     pipe_grade = clicked_row.get('PIPE_GRADE', 'N/A')
-    start_year = int(clicked_row.get('START_DATE', 1990)) 
+    start_year = int(clicked_row.get('START_DATE', 1990))   # ✅ simple form
     
     # Status + End Date
     status = str(clicked_row.get('STATUS', 'N/A')).strip()
-    end_date = clicked_row.get('END_DATE', None)
+    raw_end = clicked_row.get('END_DATE', None)
     
-    # Format END_DATE cleanly
-    if pd.notna(end_date) and end_date not in ("", "<NA>", "NaT"):
-        end_date_str = str(int(end_date)) if str(end_date).isdigit() else str(end_date)
+    # Format END_DATE cleanly (no .0 for years)
+    if pd.notna(raw_end) and raw_end not in ("", "<NA>", "NaT"):
+        if isinstance(raw_end, (int, np.integer)):
+            end_date_str = str(raw_end)
+        elif isinstance(raw_end, float) and raw_end.is_integer():
+            end_date_str = str(int(raw_end))   # remove .0
+        else:
+            end_date_str = str(raw_end)
     else:
         end_date_str = None
     
