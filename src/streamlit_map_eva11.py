@@ -1908,7 +1908,7 @@ with st.container():
             st.markdown("---")
             st.markdown(f"**Required design flow rate (capacity adjusted):** {required_qm_max:.3f} Mtonnes/year ({required_qm_max_kgps:.3f} kg/s)")
             if qm_max_Mtpy >= required_qm_max:
-                st.success("The existing pipeline IS SUITABLE for the projected CO₂ transport at the specified conditions.")
+                st.success("The existing pipeline IS MAY BE SUITABLE for the projected CO₂ transport at the specified conditions.")
             else:
                 st.error("The existing pipeline IS NOT SUITABLE for the projected CO₂ transport at the specified conditions.")
         st.markdown('</div>', unsafe_allow_html=True)
