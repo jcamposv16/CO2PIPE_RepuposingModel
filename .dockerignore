@@ -1,0 +1,21 @@
+# Version control
+.git
+.gitattributes
+.gitignore
+
+# Superseded prototype files -- kept in git history, not needed in the image
+archive/
+
+# Dev-only: tests, one-off scripts, caches
+tests/
+scripts/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+
+# Never ship secrets into the image even if one gets created locally
+.streamlit/secrets.toml
+
+# Docs
+README.md

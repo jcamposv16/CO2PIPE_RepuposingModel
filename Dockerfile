@@ -14,13 +14,16 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-COPY src/ ./src/
-
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
+
+COPY app.py ./app.py
+COPY src/ ./src/
+COPY data/ ./data/
+COPY .streamlit/ ./.streamlit/
 
 EXPOSE 8501
 
 HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
-ENTRYPOINT ["streamlit", "run", "src/streamlit_map_eva11.py", "--server.port=8501", "--server.address=0.0.0.0"]
+ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]

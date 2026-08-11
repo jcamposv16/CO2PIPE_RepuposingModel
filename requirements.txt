@@ -1,7 +1,9 @@
-streamlit
-pandas
-numpy
-folium
-geopandas
-matplotlib
-streamlit-folium
+streamlit==1.38.0
+pandas==2.2.2
+numpy==1.26.4
+folium==0.20.0
+geopandas==1.1.4
+matplotlib==3.7.3
+streamlit-folium==0.27.4
+shapely==2.1.2
+pyproj==3.7.2
