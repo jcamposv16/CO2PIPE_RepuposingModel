@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM python:3.11.5-slim
 
 WORKDIR /app
 
@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     gdal-bin \
     libgdal-dev \
     libspatialindex-dev \
+    libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./

@@ -1,3 +1,19 @@
+---
+title: CO2PIPE
+emoji: ♻️
+colorFrom: blue
+colorTo: green
+sdk: docker
+app_port: 8501
+tags:
+  - streamlit
+  - ccs
+  - carbon-capture
+  - geospatial
+pinned: false
+short_description: Repurposing UK offshore pipelines for CO2 transport in CCS
+---
+
 <div align="center">
 
 # ♻️ CO2PIPE
