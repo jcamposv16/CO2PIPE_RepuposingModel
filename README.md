@@ -39,6 +39,22 @@ short_description: Repurposing UK offshore pipelines for CO2 transport in CCS
 
 </div>
 
+<br>
+
+<div align="center">
+  <img src="images/RCCS_CO2_Storage_Conference_A1.jpg" 
+       alt="CO2PIPE conference poster — Heriot-Watt University RCCS" 
+       width="800"/>
+  <br>
+  <sub>Presented at the RCCS CO₂ Storage Conference, Heriot-Watt University</sub>
+</div>
+
+## 🚀 Live App
+
+> **Try it now:** [**CO2PIPE on Hugging Face Spaces**](https://huggingface.co/spaces/jcamposv16/CO2PIPE)
+> 
+> Deployed on Hugging Face Spaces — no installation required.
+
 ---
 
 ## Overview
@@ -369,7 +385,7 @@ School of Engineering and Physical Sciences
 
 **Supervisors:** Prof. Susana Garcia Lopez · Dr. Amir Jahanbakhsh
 
-📧 jc3021@hw.ac.uk
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Jean_Carlos_Campos-0A66C2?style=flat&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/jc-campos-valverde/)
 
 ---
 
